@@ -143,14 +143,19 @@ static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   sbp2nmea_gps_time(gps_time, &state);
 }
 
-#if 0
-static void gps_time_reference_callback(u16 sender_id, u8 len, u8 msg[], void* context) {
+
+static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void* context) {
   (void) len;
   (void) msg;
   (void) context;
-  sbp2nmea_set_base_id(sender_id, &state);
+  /* Must be outbound SBP sending */
+  if(sbp_sender_id_get() == sender_id) {
+    sbp2sbp2nmea_obs((msg_obs_t *)msg);
+  } else {
+    sbp2nmea_set_base_id(sender_id, &state);
+  }
+  return 0;
 }
-#endif
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
@@ -222,6 +227,11 @@ int main(int argc, char *argv[])
   nmea_pub = pk_endpoint_create(NMEA_PUB_ENDPOINT, PK_ENDPOINT_PUB);
   if (nmea_pub == NULL) {
     piksi_log(LOG_ERR, "error creating PUB socket");
+    exit(cleanup(EXIT_FAILURE));
+  }
+
+  if (sbp_callback_register(SBP_MSG_OBS, msg_obs_callback, NULL) != 0) {
+    piksi_log(LOG_ERR, "error setting MSG OBS callback");
     exit(cleanup(EXIT_FAILURE));
   }
 
