@@ -85,6 +85,55 @@ static int notify_gpgga_rate_changed(void *context)
   return 0;
 }
 
+static int notify_gpgsv_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gpgsv_rate(gpgsv_rate, &state);
+  return 0;
+}
+
+static int notify_gprmc_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gprmc_rate(gprmc_rate, &state);
+  return 0;
+}
+
+static int notify_gpvtg_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gpvtg_rate(gpvtg_rate, &state);
+  return 0;
+}
+
+static int notify_gphdt_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gphdt_rate(gphdt_rate, &state);
+  return 0;
+}
+
+static int notify_gpgll_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gpgll_rate(gpgll_rate, &state);
+  return 0;
+}
+
+static int notify_gpzda_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gpzda_rate(gpzda_rate, &state);
+  return 0;
+}
+
+static int notify_gsa_rate_changed(void *context)
+{
+  (void)context;
+  sbp2nmea_set_gsa_rate(gsa_rate, &state);
+  return 0;
+}
+
 static void gps_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void) context;
@@ -213,7 +262,45 @@ int main(int argc, char *argv[])
                      SETTINGS_TYPE_INT,
                      notify_gpgga_rate_changed, NULL);
 
+ settings_add_watch(settings_ctx, "nmea", "gpgsv_rate",
+                    &gpgsv_rate , sizeof(gpgsv_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gpgsv_rate_changed, NULL);
 
+ settings_add_watch(settings_ctx, "nmea", "gprmc_rate",
+                    &gprmc_rate , sizeof(gprmc_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gprmc_rate_changed, NULL);
+
+ settings_add_watch(settings_ctx, "nmea", "gpvtg_rate",
+                    &gpvtg_rate , sizeof(gpvtg_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gpvtg_rate_changed, NULL);
+
+ settings_add_watch(settings_ctx, "nmea", "gphdt_rate",
+                    &gphdt_rate , sizeof(gphdt_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gphdt_rate_changed, NULL);
+
+ settings_add_watch(settings_ctx, "nmea", "gphdt_rate",
+                    &gphdt_rate , sizeof(gphdt_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gphdt_rate_changed, NULL);
+
+ settings_add_watch(settings_ctx, "nmea", "gpgll_rate",
+                    &gpgll_rate , sizeof(gpgll_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gpgll_rate_changed, NULL);
+
+ settings_add_watch(settings_ctx, "nmea", "gpzda_rate",
+                    &gpzda_rate , sizeof(gphdt_rate),
+                    SETTINGS_TYPE_INT,
+                    notify_gpzda_rate_changed, NULL);
+
+  settings_add_watch(settings_ctx, "nmea", "gsa_rate",
+                     &gsa_rate , sizeof(gsa_rate),
+                     SETTINGS_TYPE_INT,
+                     notify_gsa_rate_changed, NULL);
   sbp_run();
 
   exit(cleanup(EXIT_SUCCESS));
