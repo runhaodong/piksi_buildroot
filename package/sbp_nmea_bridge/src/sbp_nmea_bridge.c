@@ -33,6 +33,13 @@ struct sbp_nmea_state state;
 pk_endpoint_t *nmea_pub = NULL;
 
 static int gpgga_rate;
+static int gpgsv_rate;
+static int gprmc_rate;
+static int gpvtg_rate;
+static int gphdt_rate;
+static int gpgll_rate;
+static int gpzda_rate;
+static int gsa_rate;
 
 static void usage(char *command)
 {
