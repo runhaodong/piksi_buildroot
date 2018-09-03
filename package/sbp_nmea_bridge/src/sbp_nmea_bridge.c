@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <libpiksi/logging.h>
+#include <libpiksi/util.h>
 #include <libsbp/navigation.h>
 #include <libsbp/sbp.h>
 #include <stdint.h>
@@ -157,11 +158,10 @@ static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void* context) {
   (void) context;
   /* Must be outbound SBP sending */
   if(sbp_sender_id_get() == sender_id) {
-    sbp2sbp2nmea_obs((msg_obs_t *)msg);
+    sbp2nmea_obs((msg_obs_t *)msg);
   } else {
     sbp2nmea_set_base_id(sender_id, &state);
   }
-  return 0;
 }
 
 static void utc_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
