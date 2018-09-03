@@ -158,7 +158,7 @@ static void msg_obs_callback(u16 sender_id, u8 len, u8 msg[], void* context) {
   (void) context;
   /* Must be outbound SBP sending */
   if(sbp_sender_id_get() == sender_id) {
-    sbp2nmea_obs((msg_obs_t *)msg);
+    sbp2nmea_obs((msg_obs_t *)msg, &state);
   } else {
     sbp2nmea_set_base_id(sender_id, &state);
   }
