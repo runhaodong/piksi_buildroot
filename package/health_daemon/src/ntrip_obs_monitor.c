@@ -23,12 +23,15 @@
  * \date 2018-06-13
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 
 #include <libpiksi/logging.h>
 
 #include <libsbp/sbp.h>
+#include <libsbp/navigation.h>
 #include <libsbp/observation.h>
 
 #include "health_monitor.h"
@@ -37,6 +40,11 @@
 
 #define SETTING_SECTION_NTRIP "ntrip"
 #define SETTING_NTRIP_ENABLE "enable"
+
+#define GPS_TIME_FILE_NAME "/var/run/health/gps_time_available"
+
+#define TIME_SOURCE_MASK 0x07 /* Bits 0-2 */
+#define NO_TIME          0
 
 /* these are from fw private, consider moving to libpiski */
 #define MSG_FORWARD_SENDER_ID (0u)
@@ -58,7 +66,8 @@ static u8 max_timeout_count_before_warn =
 static struct ntrip_obs_ctx_s {
   bool ntrip_enabled;
   u8 timeout_counter;
-} ntrip_obs_ctx = { .ntrip_enabled = false, .timeout_counter = 0 };
+  bool gps_time_available;
+} ntrip_obs_ctx = { .ntrip_enabled = false, .timeout_counter = 0, .gps_time_available = false };
 
 /**
  * \brief notify_ntrip_enabled - notify from watch
@@ -103,6 +112,58 @@ static int sbp_msg_ntrip_obs_callback(health_monitor_t *monitor,
   return 1; // only reset if base obs found
 }
 
+static void sbp_gps_time_cb(u16 sender_id, u8 len, u8 msg[], void *context) {
+  (void)sender_id;
+  (void)context;
+  (void)len;
+
+  const msg_gps_time_t *time = (msg_gps_time_t*)msg;
+
+  const bool has_time = (time->flags & TIME_SOURCE_MASK) != NO_TIME;
+  bool file_updated = false;
+
+  /* React only if the state changes */
+  if (has_time != ntrip_obs_ctx.gps_time_available) {
+    FILE* fp = fopen(GPS_TIME_FILE_NAME, "w");
+
+    if (fp == NULL) {
+      piksi_log(LOG_WARNING|LOG_SBP,
+                "Failed to open %s: errno = %d",
+                GPS_TIME_FILE_NAME,
+                errno);
+      return;
+    }
+
+    if (flock(fileno(fp), LOCK_EX) != 0) {
+      piksi_log(LOG_WARNING|LOG_SBP, "Failed to lock %s", GPS_TIME_FILE_NAME);
+      fclose(fp);
+      return;
+    }
+
+    char buffer[] = { (has_time ? '1' : '0'), '\n' };
+    if (fwrite(buffer, sizeof(char), sizeof(buffer), fp) != sizeof(buffer)) {
+      piksi_log(LOG_WARNING|LOG_SBP, "Failed to write %s", GPS_TIME_FILE_NAME);
+    } else {
+      file_updated = true;
+    }
+
+    if (flock(fileno(fp), LOCK_UN) != 0) {
+      piksi_log(LOG_WARNING|LOG_SBP, "Failed to unlock %s", GPS_TIME_FILE_NAME);
+    }
+
+    fclose(fp);
+  }
+
+  /* Keep the file and context variable in sync */
+  if (file_updated) {
+    ntrip_obs_ctx.gps_time_available = has_time;
+    piksi_log(LOG_DEBUG|LOG_SBP,
+              "%s updated with value %u",
+              GPS_TIME_FILE_NAME,
+              has_time);
+  }
+}
+
 /**
  * \brief ntrip_obs_timer_callback - handler for ntrip_obs_monitor timeouts
  * \param monitor: health monitor associated with this callback
@@ -113,6 +174,12 @@ static int ntrip_obs_timer_callback(health_monitor_t *monitor, void *context)
 {
   (void)monitor;
   (void)context;
+
+  if (!ntrip_obs_ctx.gps_time_available) {
+    ntrip_obs_ctx.timeout_counter = 0;
+    return 0;
+  }
+
   if (ntrip_obs_ctx.ntrip_enabled) {
       if (ntrip_obs_ctx.timeout_counter > max_timeout_count_before_warn) {
         piksi_log(LOG_WARNING|LOG_SBP,
@@ -152,6 +219,13 @@ int ntrip_obs_timeout_health_monitor_init(health_ctx_t *health_ctx)
                                        SETTINGS_TYPE_BOOL,
                                        notify_ntrip_enabled,
                                        NULL)
+      != 0) {
+    return -1;
+  }
+
+  if (health_monitor_register_message_handler(ntrip_obs_monitor,
+                                              SBP_MSG_GPS_TIME,
+                                              sbp_gps_time_cb)
       != 0) {
     return -1;
   }

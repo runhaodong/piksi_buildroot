@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include <sys/file.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -921,12 +922,54 @@ static void network_request(network_context_t* ctx, CURL *curl)
   }
 }
 
+#define GPS_TIME_FILE_NAME "/var/run/health/gps_time_available"
+
+static bool device_has_gps_time(void) {
+  bool has_time = false;
+
+  FILE* fp = fopen(GPS_TIME_FILE_NAME, "r");
+
+  if (fp == NULL) {
+    piksi_log(LOG_WARNING|LOG_SBP,
+              "Failed to open %s: errno = %d",
+              GPS_TIME_FILE_NAME,
+              errno);
+    return has_time;
+  }
+
+  if (flock(fileno(fp), LOCK_EX) != 0) {
+    piksi_log(LOG_WARNING|LOG_SBP, "Failed to lock %s", GPS_TIME_FILE_NAME);
+    fclose(fp);
+    return has_time;
+  }
+
+  has_time = ('1' == fgetc(fp));
+
+  if (flock(fileno(fp), LOCK_UN) != 0) {
+    piksi_log(LOG_WARNING|LOG_SBP, "Failed to unlock %s", GPS_TIME_FILE_NAME);
+  }
+
+  fclose(fp);
+
+  return has_time;
+}
+
 static struct curl_slist *ntrip_init(network_context_t *ctx, CURL *curl)
 {
   struct curl_slist *chunk = NULL;
 
   chunk = curl_slist_append(chunk, "Ntrip-Version: Ntrip/2.0");
   chunk = curl_slist_append(chunk, "Expect:");
+
+  piksi_log(LOG_WARNING, "ntrip_init");
+
+  while (true) {
+    //piksi_log(LOG_WARNING, "device_has_gps_time?");
+    if (device_has_gps_time()) {
+      break;
+    }
+    usleep(100e3);
+  }
 
   char gga_string[128] = {0};
   size_t gga_len = fetch_gga_buffer(ctx, gga_string, sizeof(gga_string) - 1);
