@@ -34,7 +34,6 @@ struct sbp_nmea_state state;
 pk_endpoint_t *nmea_pub = NULL;
 
 static int gpgga_rate;
-static int gpgsv_rate;
 static int gprmc_rate;
 static int gpvtg_rate;
 static int gphdt_rate;
@@ -90,13 +89,6 @@ static int notify_gpgga_rate_changed(void *context)
 {
   (void)context;
   sbp2nmea_set_gpgga_rate(gpgga_rate, &state);
-  return 0;
-}
-
-static int notify_gpgsv_rate_changed(void *context)
-{
-  (void)context;
-  sbp2nmea_set_gpgsv_rate(gpgsv_rate, &state);
   return 0;
 }
 
@@ -279,11 +271,6 @@ int main(int argc, char *argv[])
                      &gpgga_rate , sizeof(gpgga_rate),
                      SETTINGS_TYPE_INT,
                      notify_gpgga_rate_changed, NULL);
-
- settings_add_watch(settings_ctx, "nmea", "gpgsv_rate",
-                    &gpgsv_rate , sizeof(gpgsv_rate),
-                    SETTINGS_TYPE_INT,
-                    notify_gpgsv_rate_changed, NULL);
 
  settings_add_watch(settings_ctx, "nmea", "gprmc_rate",
                     &gprmc_rate , sizeof(gprmc_rate),
